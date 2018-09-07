@@ -1,0 +1,10 @@
+out
+target
+node_modules
+package-lock.json
+*#
+*~
+*.wav
+public/js
+.shadow-cljs
+yarn.lock

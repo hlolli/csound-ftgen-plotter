@@ -1,0 +1,20 @@
+{:dependencies [[org.clojure/core.specs.alpha "0.2.36"]
+                [cider/cider-nrepl "0.18.0"]
+                [reagent "0.8.1"]
+                [re-frame "0.10.6"]]
+ 
+ :source-paths ["src"]
+ :builds       {:main
+                {:modules          {:main {:entries [csound-ftgen-plotter.core]}}
+                 :target           :browser
+                 :output-dir       "public/js"
+                 :asset-path       "/js"
+                 :compiler-options {
+                                    :optimizations  :simple
+                                    :elide-strict   false
+                                    :output-wrapper true
+                                    :source-map     true
+                                    :language-out   :es6-strict
+                                    }
+                 :devtools         {:http-root "public"
+                                    :http-port 8700}}}}
