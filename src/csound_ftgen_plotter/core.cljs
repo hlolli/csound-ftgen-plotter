@@ -92,7 +92,8 @@
   (set-option "-m0")
   (set-option "-d")
   (prepareRT)
-  (compile-orc "gi_ ftgen 1, 0, 1024, 10, 1")
+  (compile-orc "giTab ftgen 1, 0, 1024, 10, 1")
+  (compile-orc "giSrc ftgen 2, 0, 1024, 10, 1")
   (reset! csound-started? true))
 
 (def ftgen-options #js
@@ -139,12 +140,12 @@
 (defn parse-input-params [in-str]
   (let [new-params
         (-> in-str
-            (string/replace " " " ")
+            (string/replace "," " ")
             (string/replace "\n" " ")
             ;; (string/replace #"[a-zA-Z]" "")
             string/trim
             (string/split #" "))
-        new-params (remove empty? new-params)
+        new-params (remove #(empty? %) new-params)
         ;; new-params (reduce #(conj
         ;;                      %1 (js/parseFloat %2))
         ;;                    [] new-params)
@@ -153,10 +154,13 @@
     new-params))
 
 (defn recalc-ftgen [local-state]
-  (let [gen-val    (.-value (:ftgen @local-state))
-        normalized (if (.-value (:normalized @local-state))
-                     "" "-")]
-    (compile-orc (str "gi_ ftgen " (:table-num @local-state) ", 0,"
+  (let [gen-val     (.-value (:ftgen @local-state))
+        normalized  (if (.-value (:normalized @local-state))
+                      "" "-")
+        global-name (if (= 1 (:table-num @local-state))
+                      "giTab" "giSrc")]
+    (compile-orc (str global-name
+                      " ftgen " (:table-num @local-state) ", 0,"
                       (:table-len @local-state) ", "
                       (if (string? gen-val)
                         (str "\"" gen-val "\"")
@@ -171,40 +175,60 @@
 
 
 (defn FtgenEditor [local-state & [root-state]]
-  [:div {:class-name "edit-area"}
-   [:div
-    ;; [:h1 (str (dissoc @local-state :array))]
-    [:input {:value      (:table-len @local-state)
-             :class-name "table-len-input"
-             :on-change  (fn [event] (swap! local-state assoc
-                                            :table-len event.target.value)
-                           (when-not (empty? event.target.value)
-                             (recalc-ftgen local-state)))}]
-    [:> Dropdown {:options   #js [#js {:value true :label "Normalized"}
-                                  #js {:value false :label "Non-normalized"}]
-                  :value     (:normalized @local-state)
-                  :on-change (fn [val]
-                               (swap! local-state assoc :normalized val)
-                               (recalc-ftgen local-state))}]
-    [:> Dropdown  {:options   ftgen-options :value (:ftgen @local-state)
-                   :on-change (fn [val]
-                                (swap! local-state assoc :ftgen val)
-                                (recalc-ftgen local-state))}]]
-   [:textarea {:class     "autoExpand" :rows 3 :data-min-rows 3
-               :on-change (fn [event]
-                            (let [new-input-params
-                                  (parse-input-params
-                                   event.target.value)
-                                  old-input-params (:params @local-state)]
-                              (swap! local-state assoc
-                                     :params new-input-params
-                                     :params-input event.target.value)
-                              (when (and (not= new-input-params old-input-params)
-                                         (not (empty? new-input-params)))
-                                (recalc-ftgen local-state)
-                                (when (and (= 2 (:table-num @local-state)) root-state)
-                                  (recalc-ftgen root-state)))))
-               :value     (:params-input @local-state)}]])
+  (let [gen-val     (.-value (:ftgen @local-state))
+        normalized  (if (.-value (:normalized @local-state)) "" "-")
+        global-name (if (= 1 (:table-num @local-state))
+                      "giTab" "giSrc")]
+    [:div
+     [:div {:class-name "csnd-output-container"}
+      [:div {:class-name "csnd-output"}
+       [:p [:em global-name] " " [:strong "ftgen"] " 0, 0, "
+        (str
+         (:table-len @local-state) ", "
+         (if (string? gen-val)
+           (str "\"" gen-val "\"")
+           (str normalized gen-val)) ", ")
+        (string/join ", " (:params @local-state))]]]
+     [:div {:class-name "edit-area"}
+      [:div
+       ;; [:h1 (str (dissoc @local-state :array))]
+       [:input {:value      (:table-len @local-state)
+                :class-name "table-len-input"
+                :on-change  (fn [event] (swap! local-state assoc
+                                               :table-len event.target.value)
+                              (when-not (empty? event.target.value)
+                                (recalc-ftgen local-state)))}]
+       [:> Dropdown {:options   #js [#js {:value true :label "Normalized"}
+                                     #js {:value false :label "Non-normalized"}]
+                     :value     (:normalized @local-state)
+                     :on-change (fn [val]
+                                  (swap! local-state assoc :normalized val)
+                                  (recalc-ftgen local-state))}]
+       [:> Dropdown  {:options   ftgen-options :value (:ftgen @local-state)
+                      :on-change (fn [val]
+                                   (swap! local-state assoc :ftgen val)
+                                   (recalc-ftgen local-state))}]]
+      [:textarea {:class          "autoExpand"
+                  :rows           3
+                  :data-min-rows  3
+                  :on-change      (fn [event]
+                                    (let [new-input-params
+                                          (parse-input-params
+                                           event.target.value)
+                                          old-input-params (:params @local-state)]
+                                      (swap! local-state assoc
+                                             :params new-input-params
+                                             :params-input event.target.value)
+                                      (when (and (not= new-input-params old-input-params)
+                                                 (not (empty? new-input-params)))
+                                        (recalc-ftgen local-state)
+                                        (when (and (= 2 (:table-num @local-state)) root-state)
+                                          (recalc-ftgen root-state)))))
+                  :value          (:params-input @local-state)
+                  :autocomplete   "off"
+                  :autocorreect   "off"
+                  :autocapitalize "off"
+                  :spellcheck     false}]]]))
 
 (defn source-table-editor [cur-gen root-state]
   (let [local-state (r/atom {:table-num    2
@@ -228,8 +252,8 @@
                      :on-change (fn [evt] (swap! root-state assoc :plotSrcTab? evt.target.value))}]
             [:small {:style {:top "-2px" :position "relative"}}
              "Plot the source table?"]]
-         [:small "IMPORTANT: This table will be fixed to table-number 2. So refer to it with that number."]
-         [:div {:style {:height "24px"}}]
+         [:small "IMPORTANT: This table will be fixed to table-number 2. So refer to it with that number or its fixed name giSrc."]
+         ;; [:div {:style {:height "24px"}}]
          [FtgenEditor local-state root-state]])})))
 
 (defn Root []
@@ -275,8 +299,9 @@
               doc        (get docs (.-value (:ftgen @local-state)))]
           
           [:div
-           [:h1 {:class-name "csnd-header"}
-            "Csound FTGen plotter util" [:sup {:style {:font-size "12px"}} "alpha"]]
+           [:div {:class-name "csnd-header-container"}
+            [:h1 {:class-name "csnd-header"}
+             "Csound FTGen plotter util" [:sup {:style {:font-size "12px"}} "alpha"]]]
            (when-let [error-msg (:error @local-state)]
              [:p error-msg])
            (when (< 0 (.-length (:array @local-state)))
@@ -293,17 +318,6 @@
                         :width       1
                         :strokeWidth 1
                         :fillOpacity 0.3}]])
-           [:div {:class-name "csnd-output-container"}
-            [:div {:class-name "csnd-output"}
-             [:p [:em "giTab"] " " [:strong "ftgen"] " 0, 0, "
-              (str
-               #_(when (string? gen-val)
-                   normalized)
-               (:table-len @local-state) ", "
-               (if (string? gen-val)
-                 (str "\"" gen-val "\"")
-                 (str normalized gen-val)) ", ")
-              (string/join ", " (:params @local-state))]]]
            [FtgenEditor local-state]
            (when (:srcTab? doc)
              [source-table-editor (.-label (:ftgen @local-state)) local-state])
@@ -312,7 +326,10 @@
             [:p (:short doc)]
             [:h2 "Syntax"]
             [:div {:class-name "syntax-container"}
-             [:p "" [:strong "f"] " number time size " (.-value (:ftgen @local-state))
+             [:p "" [:strong "f"] " number time size "
+              (if (string? gen-val)
+                (str "\"" gen-val "\"")
+                gen-val)
               " "
               [:em (string/join " " (:params (:syntax doc)))]
               (when (= :inf (:sequence (:syntax doc)))
@@ -333,7 +350,12 @@
             (when-let [examples (:examples doc)]
               [:div [:h2 "Examples"]
                (into [:div]
-                     (map #(vector :p %) examples))])]]))})))
+                     (map #(vector :p %) examples))])]
+           [:footer
+            [:a {:href "http://www.hlolli.com"}
+             "Hlöðver Sigurðsson - 2018"]
+            [:a {:href "mailto:hlolli@gmail.com"}
+             "<hlolli@gmail.com>"]]]))})))
 
 
 (r/render

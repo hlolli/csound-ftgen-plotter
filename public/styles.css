@@ -20,8 +20,14 @@ text {
 
 *:focus {outline:none !important}
 
+.csnd-header-container {
+    width: 1130px;
+    margin: 0 auto;
+}
+
 .csnd-header {
     text-align: center;
+    margin-right: -92px;
 }
 
 .csnd-output-container {
@@ -282,4 +288,19 @@ input[type="checkbox"]:hover {
 #checkbox-container {
     position: absolute;
     left: 800px;
+}
+
+footer {
+    color: #ffeac7;
+    text-decoration: none;
+    margin: 0 auto;
+    width: 100%;
+    margin-top: 24px;
+}
+
+footer a {
+    display: block;
+    text-align: center;
+    color: #ffeac7;
+    margin-bottom: 6px;;
 }
