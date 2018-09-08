@@ -4,9 +4,10 @@
 }  
 
 body {
-    height: 1100px;
+    min-height: 1100px;
     background-color: black;
     color: #ffeac7;
+    padding-bottom: 24px;
 }
 
 text {
@@ -94,6 +95,13 @@ textarea{
     box-sizing:border-box;
     background-color: black;
     
+}
+
+.syntax-container {
+    border: solid 1px #fcfcfc;
+    display: inline-block;
+    padding: 3px 24px;
+    font-size: 16px;
 }
 
 textarea:focus{
@@ -238,4 +246,40 @@ textarea{
 
 .Dropdown-menu .Dropdown-group > .Dropdown-title {
     color: #ffffeb;
+}
+
+input[type="checkbox"] {
+    transition: 0.5s ease all;
+    -moz-transition: 0.5s ease all;
+    -webkit-transition: 0.5s ease all;
+    border: 1px solid #ffeac7;
+    background: black;
+    /* @include transition(0.5s, ease, all); */
+}
+
+input[type="checkbox"]:checked {
+    border: 1px solid rgba(255, 255, 235, 0.8);
+    background: #ffeac7;
+}
+
+input[type="checkbox"]:after {
+    content: '';
+    position: relative;
+    left: 40%;
+    top: 20%;
+    width: 15%;
+    height: 40%;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    display: none;
+}
+
+input[type="checkbox"]:hover {
+    filter: brightness(90%);
+}
+
+#checkbox-container {
+    position: absolute;
+    left: 800px;
 }

@@ -105,63 +105,142 @@
                      #js {:value 33 :label "GEN33"}
                      #js {:value 34 :label "GEN34"}]}
    #js {:type  "group" :name "Line/Exponential Segment Generators"
-        :items #js [#js {:value 5 :label "GEN05"
-                         :short "Constructs functions from segments of exponential curves."}
-                    #js {:value 6 :label "GEN06"
-                         :short "Generates a function comprised of segments of cubic polynomials."}
-                    #js {:value 7 :label "GEN07"
-                         :short "Constructs functions from segments of straight lines."}
-                    #js {:value 8 :label "GEN08"
-                         :short "Generate a piecewise cubic spline curve."}
-                    #js {:value 16 :label "GEN16"
-                         :short "Creates a table from a starting value to an ending value."}
-                    #js {:value 25 :label "GEN25"
-                         :short "Construct functions from segments of exponential curves in breakpoint fashion."}
-                    #js {:value 27 :label "GEN27"
-                         :short "Construct functions from segments of straight lines in breakpoint fashion."}]}
+        :items #js [#js {:value 5 :label "GEN05"}
+                    #js {:value 6 :label "GEN06"}
+                    #js {:value 7 :label "GEN07"}
+                    #js {:value 8 :label "GEN08"}
+                    #js {:value 16 :label "GEN16"}
+                    #js {:value 25 :label "GEN25"}
+                    #js {:value 27 :label "GEN27"}]}
    #js {:type  "group" :name "Numeric Value Access GEN Routines"
-        :items #js [#js {:value 2 :label "GEN02"
-                         :short "Transfers data from immediate pfields into a function table."}
-                    #js {:value 17 :label "GEN17"
-                         :short "Creates a step function from given x-y pairs."}
-                    #js {:value 52 :label "GEN52"
-                         :short "Creates an interleaved multichannel table from the specified source tables, in the format expected by the ftconv opcode."}]}])
-
+        :items #js [#js {:value 2 :label "GEN02"}
+                    #js {:value 17 :label "GEN17"}
+                    #js {:value 52 :label "GEN52"}]}
+   #js {:type  "group" :name "Window Function GEN Routines"
+        :items #js [#js {:value 20 :label "GEN20"}]}
+   #js {:type  "group" :name "Random Function GEN Routines"
+        :items #js [#js {:value 21 :label "GEN21"}
+                    #js {:value 40 :label "GEN40"}
+                    #js {:value 41 :label "GEN41"}
+                    #js {:value 42 :label "GEN42"}]}
+   #js {:type  "group" :name "Waveshaping GEN Routines"
+        :items #js [#js {:value 3 :label "GEN03"}
+                    #js {:value 13 :label "GEN13"}
+                    #js {:value 14 :label "GEN14"}
+                    #js {:value 15 :label "GEN15"}]}
+   #js {:type  "group" :name "Named GEN Routines"
+        :items #js [#js {:value "tanh" :label "GENtanh"}
+                    #js {:value "exp" :label "GENexp"}
+                    #js {:value "sone" :label "GENsone"}
+                    #js {:value "farey" :label "GENfarey"}
+                    #js {:value "wave" :label "GENwave"}
+                    #js {:value "padsynth" :label "GENpadsynth"}]}])
 
 (defn parse-input-params [in-str]
   (let [new-params
         (-> in-str
-            (string/replace "," "")
+            (string/replace " " " ")
             (string/replace "\n" " ")
-            (string/replace #"[a-zA-Z]" "")
+            ;; (string/replace #"[a-zA-Z]" "")
             string/trim
             (string/split #" "))
         new-params (remove empty? new-params)
-        new-params (reduce #(conj
-                             %1 (js/parseFloat %2))
-                           [] new-params)]
+        ;; new-params (reduce #(conj
+        ;;                      %1 (js/parseFloat %2))
+        ;;                    [] new-params)
+        ]
     
     new-params))
 
 (defn recalc-ftgen [local-state]
-  (compile-orc (str "gi_ ftgen 1, 0, "
-                    (:table-len @local-state) ", "
-                    (if (.-value (:normalized @local-state))
-                      "" "-")
-                    (.-value (:ftgen @local-state)) ", "
-                    (string/join "," (:params @local-state))))
+  (let [gen-val    (.-value (:ftgen @local-state))
+        normalized (if (.-value (:normalized @local-state))
+                     "" "-")]
+    (compile-orc (str "gi_ ftgen " (:table-num @local-state) ", 0,"
+                      (:table-len @local-state) ", "
+                      (if (string? gen-val)
+                        (str "\"" gen-val "\"")
+                        (str normalized gen-val)) ", "
+                      (string/join "," (:params @local-state)))))
   (perform-ksmps)
-  (js/setTimeout
-   #(let [table (get-table 1)]      
-      (swap! local-state assoc :array table))
-   100))
+  (when (= 1 (:table-num @local-state))
+    (js/setTimeout
+     #(let [table (get-table (:table-num @local-state))]
+        (swap! local-state assoc :array table))
+     100)))
+
+
+(defn FtgenEditor [local-state & [root-state]]
+  [:div {:class-name "edit-area"}
+   [:div
+    ;; [:h1 (str (dissoc @local-state :array))]
+    [:input {:value      (:table-len @local-state)
+             :class-name "table-len-input"
+             :on-change  (fn [event] (swap! local-state assoc
+                                            :table-len event.target.value)
+                           (when-not (empty? event.target.value)
+                             (recalc-ftgen local-state)))}]
+    [:> Dropdown {:options   #js [#js {:value true :label "Normalized"}
+                                  #js {:value false :label "Non-normalized"}]
+                  :value     (:normalized @local-state)
+                  :on-change (fn [val]
+                               (swap! local-state assoc :normalized val)
+                               (recalc-ftgen local-state))}]
+    [:> Dropdown  {:options   ftgen-options :value (:ftgen @local-state)
+                   :on-change (fn [val]
+                                (swap! local-state assoc :ftgen val)
+                                (recalc-ftgen local-state))}]]
+   [:textarea {:class     "autoExpand" :rows 3 :data-min-rows 3
+               :on-change (fn [event]
+                            (let [new-input-params
+                                  (parse-input-params
+                                   event.target.value)
+                                  old-input-params (:params @local-state)]
+                              (swap! local-state assoc
+                                     :params new-input-params
+                                     :params-input event.target.value)
+                              (when (and (not= new-input-params old-input-params)
+                                         (not (empty? new-input-params)))
+                                (recalc-ftgen local-state)
+                                (when (and (= 2 (:table-num @local-state)) root-state)
+                                  (recalc-ftgen root-state)))))
+               :value     (:params-input @local-state)}]])
+
+(defn source-table-editor [cur-gen root-state]
+  (let [local-state (r/atom {:table-num    2
+                             :params       [1]
+                             :array        #js []
+                             :params-input "1"
+                             :normalized   #js {:value true :label "Normalized"}
+                             :ftgen        #js {:value 10 :label "GEN10"}
+                             :table-len    1024})]
+    (r/create-class
+     {:component-did-mount
+      (fn [] (get-table (:table-num @local-state)))
+      :render
+      (fn [this]
+        [:div {:class-name "csnd-output-container"}
+         [:h5 (str "Source table editor: For an argument of " cur-gen " which must point to a table.")]
+
+         #_[:div {:id "checkbox-container"}
+            [:input {:type      "checkbox" :id "checkbox-a" :name "checkbox"
+                     :value     (:plotSrcTab? @root-state)
+                     :on-change (fn [evt] (swap! root-state assoc :plotSrcTab? evt.target.value))}]
+            [:small {:style {:top "-2px" :position "relative"}}
+             "Plot the source table?"]]
+         [:small "IMPORTANT: This table will be fixed to table-number 2. So refer to it with that number."]
+         [:div {:style {:height "24px"}}]
+         [FtgenEditor local-state root-state]])})))
 
 (defn Root []
-  (let [local-state (r/atom {:p-fields     5
+  (let [local-state (r/atom {:table-num    1
                              :table-len    1024
                              :params       [1]
+                             :src-params   [1]
                              :params-input "1"
                              :array        #js []
+                             ;; :ftgen        #js {:value 33 :label "GEN33"}
+                             ;; :plotSrcTab?  "off"
                              :ftgen        #js {:value 10 :label "GEN10"}
                              :error        nil
                              :normalized   #js {:value true :label "Normalized"}})]
@@ -181,7 +260,7 @@
                            (start-csound)
                            (perform-ksmps)
                            (js/setTimeout
-                            #(let [table (get-table 1)]
+                            #(let [table (get-table (:table-num @local-state))]
                                (swap! local-state assoc :array table))
                             100))
                          :noExitRuntime true
@@ -191,7 +270,9 @@
                                                     (string/replace msg #"|\[m" ""))))})))
       :render
       (fn [this]
-        (let []
+        (let [normalized (if (.-value (:normalized @local-state)) "" "-")
+              gen-val    (.-value (:ftgen @local-state))
+              doc        (get docs (.-value (:ftgen @local-state)))]
           
           [:div
            [:h1 {:class-name "csnd-header"}
@@ -216,44 +297,43 @@
             [:div {:class-name "csnd-output"}
              [:p [:em "giTab"] " " [:strong "ftgen"] " 0, 0, "
               (str
+               #_(when (string? gen-val)
+                   normalized)
                (:table-len @local-state) ", "
-               (.-value (:ftgen @local-state)) ", ")
+               (if (string? gen-val)
+                 (str "\"" gen-val "\"")
+                 (str normalized gen-val)) ", ")
               (string/join ", " (:params @local-state))]]]
-           [:div {:class-name "edit-area"}
-            [:div
-             ;; [:h1 (str (dissoc @local-state :array))]
-             [:input {:value      (:table-len @local-state)
-                      :class-name "table-len-input"
-                      :on-change  (fn [event] (swap! local-state assoc
-                                                     :table-len event.target.value)
-                                    (when-not (empty? event.target.value)
-                                      (recalc-ftgen local-state)))}]
-             [:> Dropdown {:options   #js [#js {:value true :label "Normalized"}
-                                           #js {:value false :label "Non-normalized"}]
-                           :value     (:normalized @local-state)
-                           :on-change (fn [val]
-                                        (swap! local-state assoc :normalized val)
-                                        (recalc-ftgen local-state))}]
-             [:> Dropdown  {:options   ftgen-options :value (:ftgen @local-state)
-                            :on-change (fn [val]
-                                         (swap! local-state assoc :ftgen val)
-                                         (recalc-ftgen local-state))}]]
-            [:textarea {:class     "autoExpand" :rows 3 :data-min-rows 3
-                        :on-change (fn [event]
-                                     (let [new-input-params
-                                           (parse-input-params
-                                            event.target.value)
-                                           old-input-params (:params @local-state)]
-                                       (swap! local-state assoc
-                                              :params new-input-params
-                                              :params-input event.target.value)
-                                       (when (and (not= new-input-params old-input-params)
-                                                  (not (empty? new-input-params)))
-                                         (recalc-ftgen local-state))))
-                        :value     (:params-input @local-state)}]]
+           [FtgenEditor local-state]
+           (when (:srcTab? doc)
+             [source-table-editor (.-label (:ftgen @local-state)) local-state])
            [:div {:class-name "csnd-docs"}
             [:h1 (.-label (:ftgen @local-state))]
-            [:p (:short (get docs (.-value (:ftgen @local-state))))]]]))})))
+            [:p (:short doc)]
+            [:h2 "Syntax"]
+            [:div {:class-name "syntax-container"}
+             [:p "" [:strong "f"] " number time size " (.-value (:ftgen @local-state))
+              " "
+              [:em (string/join " " (:params (:syntax doc)))]
+              (when (= :inf (:sequence (:syntax doc)))
+                " ....")]]
+            (into [:div
+                   (if-let [size-doc (:size (:syntax doc))]
+                     [:p [:sup {:style {:margin-right "6px"}} "size"] size-doc]
+                     [:span])]
+                  (map-indexed #(vector (if (vector? %2) :div :p)
+                                        (when-not (vector? %2)
+                                          [:sup {:style {:margin-right "6px"}}
+                                           (str (inc %1))]) %2)
+                               (:comments (:syntax doc))))
+            (when-let [warnings (:warnings doc)]
+              [:div [:h2 "Warnings/notes"]
+               (into [:div]
+                     (map #(vector :p %) warnings))])
+            (when-let [examples (:examples doc)]
+              [:div [:h2 "Examples"]
+               (into [:div]
+                     (map #(vector :p %) examples))])]]))})))
 
 
 (r/render
